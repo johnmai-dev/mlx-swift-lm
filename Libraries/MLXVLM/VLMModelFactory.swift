@@ -86,6 +86,8 @@ public enum VLMTypeRegistry {
         "qwen2_vl": create(Qwen2VLConfiguration.self, Qwen2VL.init),
         "qwen2_5_vl": create(Qwen25VLConfiguration.self, Qwen25VL.init),
         "qwen3_vl": create(Qwen3VLConfiguration.self, Qwen3VL.init),
+        "qwen3_5": create(Qwen35Configuration.self, Qwen35.init),
+        "qwen3_5_moe": create(Qwen35Configuration.self, Qwen35MoE.init),
         "idefics3": create(Idefics3Configuration.self, Idefics3.init),
         "gemma3": create(Gemma3Configuration.self, Gemma3.init),
         "smolvlm": create(SmolVLM2Configuration.self, SmolVLM2.init),
@@ -211,6 +213,16 @@ public class VLMRegistry: AbstractModelRegistry, @unchecked Sendable {
     static public let fastvlm = ModelConfiguration(
         id: "mlx-community/FastVLM-0.5B-bf16",
         defaultPrompt: "Describe this image in detail."
+    )
+
+    static public let qwen3_5_27B_4bit = ModelConfiguration(
+        id: "mlx-community/Qwen3.5-27B-4bit",
+        defaultPrompt: "Describe the image in English"
+    )
+
+    static public let qwen3_5_35B_A3B_4bit = ModelConfiguration(
+        id: "mlx-community/Qwen3.5-35B-A3B-4bit",
+        defaultPrompt: "Describe the image in English"
     )
 
     static public func all() -> [ModelConfiguration] {

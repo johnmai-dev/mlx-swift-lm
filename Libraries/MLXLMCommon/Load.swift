@@ -6,6 +6,45 @@ import MLX
 import MLXNN
 import Tokenizers
 
+private func isMLXFormatSafetensor(url: URL) -> Bool {
+    guard let handle = try? FileHandle(forReadingFrom: url) else {
+        return false
+    }
+    defer {
+        try? handle.close()
+    }
+
+    guard let headerLenData = try? handle.read(upToCount: 8) else {
+        return false
+    }
+    guard headerLenData.count == 8 else {
+        return false
+    }
+
+    let rawHeaderLength = headerLenData.withUnsafeBytes { $0.load(as: UInt64.self) }
+    let headerLength = Int(UInt64(littleEndian: rawHeaderLength))
+    guard headerLength > 0 else {
+        return false
+    }
+
+    guard let headerData = try? handle.read(upToCount: headerLength) else {
+        return false
+    }
+    guard headerData.count == headerLength else {
+        return false
+    }
+
+    guard
+        let headerJSON = try? JSONSerialization.jsonObject(with: headerData) as? [String: Any],
+        let metadata = headerJSON["__metadata__"] as? [String: Any],
+        let format = metadata["format"] as? String
+    else {
+        return false
+    }
+
+    return format.lowercased() == "mlx"
+}
+
 /// Download the model using the `HubApi`.
 ///
 /// This will download `*.safetensors` and `*.json` if the ``ModelConfiguration``
@@ -59,7 +98,8 @@ public func downloadModel(
 ///
 /// This is typically called via ``ModelFactory/load(hub:configuration:progressHandler:)``.
 /// This function loads all `safetensor` files in the given `modelDirectory`,
-/// calls ``LanguageModel/sanitize(weights:)``, applies optional quantization, and
+/// calls ``LanguageModel/sanitize(weights:)`` for non-MLX safetensors,
+/// applies optional quantization, and
 /// updates the model with the weights.
 public func loadWeights(
     modelDirectory: URL, model: LanguageModel,
@@ -68,10 +108,12 @@ public func loadWeights(
 ) throws {
     // load the weights
     var weights = [String: MLXArray]()
+    var safetensorURLs = [URL]()
     let enumerator = FileManager.default.enumerator(
         at: modelDirectory, includingPropertiesForKeys: nil)!
     for case let url as URL in enumerator {
         if url.pathExtension == "safetensors" {
+            safetensorURLs.append(url)
             let w = try loadArrays(url: url)
             for (key, value) in w {
                 weights[key] = value
@@ -80,7 +122,11 @@ public func loadWeights(
     }
 
     // per-model cleanup
-    weights = model.sanitize(weights: weights)
+    safetensorURLs.sort { $0.path < $1.path }
+    let isMLXFormat = safetensorURLs.first.map(isMLXFormatSafetensor(url:)) ?? false
+    if !isMLXFormat {
+        weights = model.sanitize(weights: weights)
+    }
 
     // quantize if needed
     if quantization != nil || perLayerQuantization != nil {

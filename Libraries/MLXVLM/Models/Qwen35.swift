@@ -1174,6 +1174,15 @@ public class Qwen35: Module, VLMModel {
         return result.logits
     }
 
+    public func sanitize(weights: [String: MLXArray], metadata: [String: String]) -> [String:
+        MLXArray]
+    {
+        if metadata["format"]?.lowercased() == "mlx" {
+            return weights
+        }
+        return sanitize(weights: weights)
+    }
+
     public func sanitize(weights: [String: MLXArray]) -> [String: MLXArray] {
         var weights = weights.filter { !$0.key.contains("mtp.") }
 

@@ -22,7 +22,7 @@ private func computeGatedDeltaG(_ aLog: MLXArray, _ a: MLXArray, _ dtBias: MLXAr
     -> MLXArray
 {
     let decay = exp(-exp(aLog.asType(.float32)) * softplus(a + dtBias))
-    return decay.asType(aLog.dtype)
+    return decay.asType(a.dtype)
 }
 
 private func gatedDeltaStepOps(
@@ -672,9 +672,10 @@ enum Qwen35Language {
             let v = split[2].reshaped(B, S, numVHeads, headVDim)
 
             var state = cache?[1]
+            let dtype = q.dtype
             let invScale = pow(Float(headKDim), -0.5)
-            let qNormed = pow(invScale, 2) * MLXFast.rmsNorm(q, weight: MLXArray.mlxNone, eps: 1e-6)
-            let kNormed = invScale * MLXFast.rmsNorm(k, weight: MLXArray.mlxNone, eps: 1e-6)
+            let qNormed = MLXArray(pow(invScale, 2)).asType(dtype) * MLXFast.rmsNorm(q, weight: MLXArray.mlxNone, eps: 1e-6)
+            let kNormed = MLXArray(invScale).asType(dtype) * MLXFast.rmsNorm(k, weight: MLXArray.mlxNone, eps: 1e-6)
 
             var out: MLXArray
             (out, state) = gatedDeltaUpdate(
@@ -1220,7 +1221,7 @@ public class Qwen35: Module, VLMModel {
                 value = value.movedAxis(source: 2, destination: 1)
             }
             if normKeys.contains(where: { key.hasSuffix($0) }) && value.ndim == 1 {
-                value = value + 1.0
+                value = value + MLXArray(1, dtype: value.dtype)
             }
 
             sanitized[key] = value

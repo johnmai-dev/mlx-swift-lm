@@ -262,10 +262,10 @@ final class Qwen35GatedDeltaNet: Module {
         let v = convSplit[2].reshaped(B, S, numVHeads, headVDim)
 
         var state = cache?[1]
+        let dtype = q.dtype
         let invScale = pow(Float(headKDim), -0.5)
-        let qNormed =
-            pow(invScale, 2) * MLXFast.rmsNorm(q, weight: MLXArray.mlxNone, eps: 1e-6)
-        let kNormed = invScale * MLXFast.rmsNorm(k, weight: MLXArray.mlxNone, eps: 1e-6)
+        let qNormed = MLXArray(pow(invScale, 2)).asType(dtype) * MLXFast.rmsNorm(q, weight: MLXArray.mlxNone, eps: 1e-6)
+        let kNormed = MLXArray(invScale).asType(dtype) * MLXFast.rmsNorm(k, weight: MLXArray.mlxNone, eps: 1e-6)
 
         var out: MLXArray
 
@@ -618,7 +618,7 @@ public class Qwen35TextModel: Module, LLMModel, KVCacheDimensionProvider {
                 && normKeys.contains(where: { k.hasSuffix($0) })
                 && v.ndim == 1
             {
-                weights[k] = v + 1.0
+                weights[k] = v + MLXArray(1, dtype: v.dtype)
             }
         }
 

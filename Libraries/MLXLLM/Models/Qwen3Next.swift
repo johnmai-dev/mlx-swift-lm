@@ -18,7 +18,7 @@ func sigmoidMultiply(_ x: MLXArray, _ gate: MLXArray) -> MLXArray {
 
 func computeGatedDeltaG(_ aLog: MLXArray, _ a: MLXArray, _ dtBias: MLXArray) -> MLXArray {
     let decay = exp(-exp(aLog.asType(.float32)) * softplus(a + dtBias))
-    return decay.asType(aLog.dtype)
+    return decay.asType(a.dtype)
 }
 
 func gatedDeltaStepOps(
@@ -399,10 +399,8 @@ public final class Qwen3NextGatedDeltaNet: Module {
         let vOut = convSplit[2].reshaped(B, S, numVHeads, headVDim)
 
         let invScale = pow(Float(headKDim), -0.5)
-        qOut =
-            (invScale * invScale)
-            * MLXFast.rmsNorm(qOut, weight: MLXArray.mlxNone, eps: 1e-6)
-        kOut = invScale * MLXFast.rmsNorm(kOut, weight: MLXArray.mlxNone, eps: 1e-6)
+        qOut = MLXArray(invScale * invScale).asType(dtype) * MLXFast.rmsNorm(qOut, weight: MLXArray.mlxNone, eps: 1e-6)
+        kOut = MLXArray(invScale).asType(dtype) * MLXFast.rmsNorm(kOut, weight: MLXArray.mlxNone, eps: 1e-6)
 
         let (out, newState) = gatedDeltaUpdate(
             q: qOut,
@@ -679,7 +677,7 @@ public class Qwen3NextModel: Module, LLMModel, KVCacheDimensionProvider {
                 continue
             }
             if normSuffixes.contains(where: { key.hasSuffix($0) }) && value.ndim == 1 {
-                sanitizedWeights[key] = value + 1.0
+                sanitizedWeights[key] = value + MLXArray(1, dtype: value.dtype)
             }
         }
 
